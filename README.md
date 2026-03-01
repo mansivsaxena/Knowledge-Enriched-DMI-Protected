@@ -1,41 +1,25 @@
 # Knowledge-Enriched-Distributional-Model-Inversion-Attacks
 
-This is a PyTorch implementation of our paper at ICCV2021:
-
 **Knowledge Enriched Distributional Model Inversion Attacks** \[[paper](https://openaccess.thecvf.com/content/ICCV2021/papers/Chen_Knowledge-Enriched_Distributional_Model_Inversion_Attacks_ICCV_2021_paper.pdf)\]  \[[arxiv](https://arxiv.org/abs/2010.04092)\]
-
-We propose a novel **'Inversion-Specific GAN'** that can better distill knowledge useful for performing attacks on private models from public data. Moreover,  we propose to *model a private data distribution* for each target class which refers to **'Distributional Recovery'**.
 
 ## Requirement
 This code has been tested with Python 3.6, PyTorch 1.0 and cuda 10.0. 
 
-## Getting Started
-* Install required packages.
-* Download relevant datasets including Celeba, MNIST, CIFAR10.
-* Get target model prepared or run our code
-    `python train_classifier.py` <br>
-    Note that this code only provides three model architectures: VGG16, IR152, Facenet. And pretrained checkpoints for the three models can be downloaded at https://drive.google.com/drive/folders/1U4gekn72UX_n1pHdm9GQUQwwYVDvpTfN?usp=sharing.
+## Note
+* All code runs were done in Google Colab since I have MacOS and Cuda is not straightforward to set up.
+* All steps provided below are to run the code in google colab
 
-## Build a inversion-specific GAN
-* Modify the configuration in 'celeba.json'.
-* Modify the target model path in 'k+1_gan.py' to your customized path.
-* Run
-    `python k+1_gan.py`.
-* Model checkpoints and generated image results are saved in folder ’improvedGAN‘.
-* A general GAN can be obtained as a baseline by running
-    `python binary_gan.py`.
-* Pretrained binary GAN and inversion-specific GAN can be downloaded at https://drive.google.com/drive/folders/1L3frX-CE4j36pe5vVWuy3SgKGS9kkA70?usp=sharing.
+## Getting Started 
+* Download this code repo locally
+* Download pre-trained checkpoints for the 3 models (VGG16, IR152, FaceNet64) from https://drive.google.com/drive/folders/1U4gekn72UX_n1pHdm9GQUQwwYVDvpTfN?usp=sharing and save to folder "target_model" in your code directory 
+* Pretrained binary GAN and inversion-specific GAN can be downloaded at https://drive.google.com/drive/folders/1L3frX-CE4j36pe5vVWuy3SgKGS9kkA70?usp=sharing. Download it and save to folder "improvedGAN" in your code folder. 
 
-
-## Distributional Recovery
-Run
-    `python recovery.py`
-    
-* `--model` chooses the target model to attack.
-* `--improved_flag` indicates if an inversion-specfic GAN is used. If False, then a general GAN will be applied.
-* `--dist_flag` indicates if distributional recovery is performed. If False, then optimization is simply applied on a single sample instead of a distribution.
-* By setting both `improved_flag` and `dist_flag` be False, we are simply using the method proposed in [[1]](#1).
-
+## Running
+* After following the above steps, download the .ipynb notebooks "running-attacks.ipynb" and "statistical-analysis.ipynb" and open them on Google colab.
+* Make sure the checkpoints are downloaded and saved in your code folder
+* Then upload this code folder to your google drive
+* Make sure you open the Colab notebooks with the same Google Drive account that you used to save the code folder
+* Run the cells in google colab - first run the "running-attacks.ipynb" notebook, then the "statistical-analysis.ipynb" notebook
 
 ## Reference
 <a id="1">[1]</a> 
