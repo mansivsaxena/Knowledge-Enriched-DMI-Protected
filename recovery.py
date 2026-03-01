@@ -1,3 +1,5 @@
+import csv
+
 from losses import completion_network_loss, noise_loss
 from utils import *
 from classify import *
@@ -40,15 +42,41 @@ if __name__ == "__main__":
     parser.add_argument('--device', type=str, default='4,5,6,7', help='Device to use. Like cuda, cuda:0 or cpu')
     parser.add_argument('--improved_flag', action='store_true', default=False, help='use improved k+1 GAN')
     parser.add_argument('--dist_flag', action='store_true', default=False, help='use distributional recovery')
+    
+    #Phase1,2,3 related args
+    # iter_list: for phase 1, comma separated list of iteration budgets to evaluate; for phase 2 and 3, only the first value will be used as fixed iteration budget
+    # num_ids: number of identities to attack 
+    # num_seeds: number of random seeds to run for each attack 
+    # phase: which phase to run (phase1/phase2/phase3)
+    parser.add_argument('--iter_list', type=str, default='300,600,1200', help='Comma separated iteration budgets')
+    parser.add_argument('--num_ids', type=int, default=10, help='Number of identities')
+    parser.add_argument('--num_seeds', type=int, default=3, help='Number of seeds')
+    parser.add_argument('--phase', type=str, default='phase1', help='phase1 for iteration experiment, phase2 for attack comparison, phase3 for defense evaluation')
+    
+    #Phase 3 related args added
+    # defense: "none" | "noise" | "smooth" - to specify the type of defense to apply during attack evaluation
+    # noise_sigma: the standard deviation of Gaussian noise to add if defense is "noise"
+    # smooth_alpha: the smoothing factor for label smoothing if defense is "smooth"
+    # model_trained_against: specify which target model the GAN was trained against (VGG16, IR152, FaceNet64)
+    parser.add_argument('--defense', type=str, default='none',
+                    help='none | noise | smooth')
+    parser.add_argument('--noise_sigma', type=float, default=0.01)
+    parser.add_argument('--smooth_alpha', type=float, default=0.1)
+    parser.add_argument('--model_trained_against', type=str, default=None,
+                        help='Model GAN was trained against')
     args = parser.parse_args()
+
+    # parse iter_list into a list of integers
+    iter_list = [int(x) for x in args.iter_list.split(',')]
+
     logger = get_logger()
 
-    logger.info(args)
-    logger.info("=> creating model ...")
+    # changes to save results from phases
+    results_dir = './results_' + args.phase
+    os.makedirs(results_dir, exist_ok=True)
 
-    print("=> Using improved GAN:", args.improved_flag)
-   
-    
+    logger.info(args)
+    logger.info("=> creating model ...")   
     
     z_dim = 100
     ###########################################
@@ -56,10 +84,24 @@ if __name__ == "__main__":
     ###########################################
     G = Generator(z_dim)
     G = torch.nn.DataParallel(G).cuda()
+
     if args.improved_flag == True:
         D = MinibatchDiscriminator()
-        path_G = './improvedGAN/improved_celeba_G.tar'
-        path_D = './improvedGAN/improved_celeba_D.tar'
+
+        # Phase3 - loading different GAN checkpoints based on which target model the GAN was trained against 
+        if args.model_trained_against == "IR152":
+            path_G = './improvedGAN/improved_celeba_G_IR152.tar'
+            path_D = './improvedGAN/improved_celeba_D_IR152.tar'
+
+        elif args.model_trained_against == "FaceNet64":
+            path_G = './improvedGAN/improved_celeba_G_facenet.tar'
+            path_D = './improvedGAN/improved_celeba_D_facenet.tar'
+
+        else:
+            # default = VGG16
+            path_G = './improvedGAN/improved_celeba_G.tar'
+            path_D = './improvedGAN/improved_celeba_D.tar'
+
     else:
         D = DGWGAN(3)
         path_G = './improvedGAN/celeba_G.tar'
@@ -94,26 +136,242 @@ if __name__ == "__main__":
 
 
     ############         attack     ###########
-    logger.info("=> Begin attacking ...")
-
-    aver_acc, aver_acc5, aver_var, aver_var5 = 0, 0, 0, 0
-    for i in range(1):
-        iden = torch.from_numpy(np.arange(60))
-
-        # evaluate on the first 300 identities only
-        for idx in range(5):
-            print("--------------------- Attack batch [%s]------------------------------" % idx)
-            if args.dist_flag == True:
-                acc, acc5, var, var5 = dist_inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=2400, clip_range=1, improved=args.improved_flag, num_seeds=5)
-            else:
-                acc, acc5, var, var5 = inversion(G, D, T, E, iden, itr=i, lr=2e-2, momentum=0.9, lamda=100, iter_times=2400, clip_range=1, improved=args.improved_flag)
-            
-            iden = iden + 60
-            aver_acc += acc / 5
-            aver_acc5 += acc5 / 5
-            aver_var += var / 5
-            aver_var5 += var5 / 5
-
-    print("Average Acc:{:.2f}\tAverage Acc5:{:.2f}\tAverage Acc_var:{:.4f}\tAverage Acc_var5:{:.4f}".format(aver_acc, aver_acc5, aver_var, aver_var5))
-
     
+    # column headers for saving results csv based on phase
+    columnn_headers_phase1 = [
+        'Model',
+        'Iterations',
+        'Top1_Acc',
+        'Top5_Acc',
+        'Acc_Var',
+        'Acc5_Var',
+        'Runtime_sec'
+    ]
+    
+    columnn_headers_phase2 = [
+        'Model',
+        'Attack_Type',
+        'Iterations',
+        'Top1_Acc',
+        'Top5_Acc',
+        'Acc_Var',
+        'Acc5_Var',
+        'Runtime_sec',
+        'Delta_from_Baseline',
+        'Improvement_Percentage'
+    ]
+
+    column_headers_phase3 = [
+        'Model_Trained_Against',
+        'Test_Model',
+        'Attack_Type',
+        'Defense',
+        'Noise_Sigma',
+        'Smooth_Alpha',
+        'Iterations',
+        'Top1_Acc',
+        'Top5_Acc',
+        'Acc_Var',
+        'Acc5_Var',
+        'Runtime_sec'
+    ]
+
+    csv_filename = f"{args.model}_{args.phase}.csv"
+    if args.phase == "phase3":
+        csv_filename = "results.csv"
+    csv_path = os.path.join(results_dir, csv_filename)
+
+    logger.info(f"=> Running {args.phase}")
+
+    if os.path.exists(csv_path):
+        csv_mode = 'a'
+    else:
+        csv_mode = 'w'
+    
+    write_headers = not os.path.exists(csv_path)
+
+    with open(csv_path, mode=csv_mode, newline='') as file:
+        writer = csv.writer(file)
+
+        if args.phase == "phase1":
+            if write_headers:
+                writer.writerow(columnn_headers_phase1)
+
+            #Phase 1: Iterations vs execution time and accuracy
+            for iter_budget in iter_list:
+
+                logger.info(f"==> Running with iter_times={iter_budget}")
+                iden = torch.from_numpy(np.arange(args.num_ids))
+
+                if args.dist_flag:
+                    acc, acc5, var, var5, runtime = dist_inversion(
+                        G, D, T, E,
+                        iden,
+                        itr=0,
+                        iter_times=iter_budget,
+                        improved=args.improved_flag,
+                        num_seeds=args.num_seeds
+                    )
+                else:
+                    acc, acc5, var, var5, runtime = inversion(
+                        G, D, T, E,
+                        iden,
+                        itr=0,
+                        iter_times=iter_budget,
+                        improved=args.improved_flag,
+                        num_seeds=args.num_seeds
+                    )
+
+                print(f"Results for {args.model} with iter_times={iter_budget}: Acc={acc:.4f}, Acc5={acc5:.4f}, Var={var:.6f}, Var5={var5:.6f}, Runtime={runtime:.2f} sec")
+
+                writer.writerow([
+                    args.model,
+                    iter_budget,
+                    acc,
+                    acc5,
+                    var,
+                    var5,
+                    runtime
+                ])
+                file.flush()
+
+        elif args.phase == "phase2":
+            if write_headers:
+                writer.writerow(columnn_headers_phase2)
+            
+            #Phase 2: Attack Comparison
+            if args.improved_flag and not args.dist_flag:
+                attack_name = "Improved_GAN"
+                improved_flag = True
+                dist_flag = False
+            elif args.dist_flag:
+                attack_name = "Distributional_Recovery"
+                improved_flag = True
+                dist_flag = True
+            else:
+                attack_name = "Baseline"
+                improved_flag = False
+                dist_flag = False
+
+            baseline_acc = 0.0 
+            
+            #getting baseline acc from csv if exists
+            if attack_name != "Baseline" and os.path.exists(csv_path):
+                with open(csv_path, mode='r') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['Attack_Type'] == 'Baseline':
+                            baseline_acc = float(row['Top1_Acc'])
+                            break
+
+            logger.info(f"==> Running {attack_name} attack")
+            iden = torch.from_numpy(np.arange(args.num_ids))
+            iter_budget = iter_list[0] #only 1 fixed number of iterations for phase 2 
+
+            if dist_flag:
+                acc, acc5, var, var5, runtime = dist_inversion(
+                    G, D, T, E,
+                    iden,
+                    itr=0,
+                    iter_times=iter_budget,
+                    improved=improved_flag,
+                    num_seeds=args.num_seeds
+                )
+            else:
+                acc, acc5, var, var5, runtime = inversion(
+                    G, D, T, E,
+                    iden,
+                    itr=0,
+                    iter_times=iter_budget,
+                    improved=improved_flag,
+                    num_seeds=args.num_seeds
+                )
+
+            #deltas
+            if attack_name == "Baseline":
+                baseline_acc = acc
+                delta = 0.0
+                improvement = 0.0
+            else:
+                delta = acc - baseline_acc
+                improvement = (delta / baseline_acc) * 100 if baseline_acc > 0 else 0.0
+
+            print(f"Results for {attack_name} attack: Acc={acc:.4f}, Acc5={acc5:.4f}, Var={var:.6f}, Var5={var5:.6f}, Runtime={runtime:.2f} sec, Delta={delta:.4f}, Improvement={improvement:.2f}%")   
+                
+            writer.writerow([
+                args.model,
+                attack_name,
+                iter_budget,
+                acc,
+                acc5,
+                var,
+                var5,
+                runtime,
+                delta,
+                improvement
+            ])
+            file.flush()
+
+        else:
+            #Phase 3: Transfer attack and Defense Evaluation
+            if write_headers:
+                writer.writerow(column_headers_phase3)
+
+            if args.dist_flag:
+                attack_name = "Distributional_Recovery"
+                improved_flag = True
+            elif args.improved_flag:
+                attack_name = "Improved_GAN"
+                improved_flag = True
+            else:
+                attack_name = "Baseline"
+                improved_flag = False
+
+            logger.info(f"==> Phase3: {attack_name}")
+            iden = torch.from_numpy(np.arange(args.num_ids))
+            iter_budget = iter_list[0]
+
+            if args.dist_flag:
+                acc, acc5, var, var5, runtime = dist_inversion(
+                    G, D, T, E,
+                    iden,
+                    itr=0,
+                    iter_times=iter_budget,
+                    improved=improved_flag,
+                    num_seeds=args.num_seeds,
+                    defense=args.defense,
+                    noise_sigma=args.noise_sigma,
+                    smooth_alpha=args.smooth_alpha
+                )
+            else:
+                acc, acc5, var, var5, runtime = inversion(
+                    G, D, T, E,
+                    iden,
+                    itr=0,
+                    iter_times=iter_budget,
+                    improved=improved_flag,
+                    num_seeds=args.num_seeds,
+                    defense=args.defense,
+                    noise_sigma=args.noise_sigma,
+                    smooth_alpha=args.smooth_alpha
+                )
+
+            print(f"Results for {attack_name} attack with defense={args.defense}, noise_sigma={args.noise_sigma}, smooth_alpha={args.smooth_alpha}: Acc={acc:.4f}, Acc5={acc5:.4f}, Var={var:.6f}, Var5={var5:.6f}, Runtime={runtime:.2f} sec")
+
+            writer.writerow([
+                args.model_trained_against if args.model_trained_against else args.model,
+                args.model,
+                attack_name,
+                args.defense,
+                args.noise_sigma,
+                args.smooth_alpha,
+                iter_budget,
+                acc,
+                acc5,
+                var,
+                var5,
+                runtime
+            ])
+            file.flush()
+
+    logger.info(f"Results saved to {csv_path}")

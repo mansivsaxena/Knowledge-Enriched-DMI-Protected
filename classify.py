@@ -76,7 +76,8 @@ class VGG16_vib(nn.Module):
         mu, std = statis[:, :self.k], statis[:, self.k:]
         
         std = F.softplus(std-5, beta=1)
-        eps = torch.FloatTensor(std.size()).normal_().cuda()
+        device = feature.device
+        eps = torch.FloatTensor(std.size()).normal_().to(device)
         res = mu + std * eps
         out = self.fc_layer(res)
        
@@ -89,7 +90,7 @@ class VGG16_vib(nn.Module):
         mu, std = statis[:, :self.k], statis[:, self.k:]
         
         std = F.softplus(std-5, beta=1)
-        eps = torch.FloatTensor(std.size()).normal_().cuda()
+        eps = torch.FloatTensor(std.size()).normal_().to(std.device)
         res = mu + std * eps
         out = self.fc_layer(res)
        
@@ -205,7 +206,7 @@ class IR152_vib(nn.Module):
         mu, std = statis[:, :self.k], statis[:, self.k:]
         
         std = F.softplus(std-5, beta=1)
-        eps = torch.FloatTensor(std.size()).normal_().cuda()
+        eps = torch.FloatTensor(std.size()).normal_().to(std.device)
         res = mu + std * eps
         out = self.fc_layer(res)
         __, iden = torch.max(out, dim=1)
@@ -237,7 +238,7 @@ class IR50(nn.Module):
         mu, std = statis[:, :self.k], statis[:, self.k:]
         
         std = F.softplus(std-5, beta=1)
-        eps = torch.FloatTensor(std.size()).normal_().cuda()
+        eps = torch.FloatTensor(std.size()).normal_().to(std.device)
         res = mu + std * eps
         out = self.fc_layer(res)
         __, iden = torch.max(out, dim=1)
@@ -270,7 +271,7 @@ class IR50_vib(nn.Module):
         mu, std = statis[:, :self.k], statis[:, self.k:]
         
         std = F.softplus(std-5, beta=1)
-        eps = torch.FloatTensor(std.size()).normal_().cuda()
+        eps = torch.FloatTensor(std.size()).normal_().to(std.device)
         res = mu + std * eps
         out = self.fc_layer(res)
         __, iden = torch.max(out, dim=1)

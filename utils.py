@@ -233,7 +233,7 @@ def crop(x, area):
     return x[:, :, ymin : ymin + h, xmin : xmin + w]
 
 def get_center_mask(img_size, bs):
-    mask = torch.zeros(img_size, img_size).cuda()
+    mask = torch.zeros(img_size, img_size).to(device)
     scale = 0.15
     l = int(img_size * scale)
     u = int(img_size * (1.0 - scale))
@@ -242,7 +242,7 @@ def get_center_mask(img_size, bs):
     return mask
 
 def get_train_mask(img_size, bs):
-    mask = torch.zeros(img_size, img_size).cuda()
+    mask = torch.zeros(img_size, img_size).to(device)
     typ = random.randint(0, 1)
     if typ == 0:
         scale = 0.25
@@ -296,7 +296,7 @@ def low2high(img):
         img_i = proc(img_i)
         img[i, :, :, :] = img_i[:, :, :]
     
-    img = img.cuda()
+    img = img.to(device)
     return img
 
 def calc_feat(img):
@@ -304,7 +304,7 @@ def calc_feat(img):
     BACKBONE_RESUME_ROOT = './target_model/target_ckp/FaceNet_95.88.tar'
     print("Loading Backbone Checkpoint ")
     I.load_state_dict(torch.load(BACKBONE_RESUME_ROOT))
-    I = torch.nn.DataParallel(I).cuda()
+    I = torch.nn.DataParallel(I).to(device)
     img = low2high(img)
     feat, res = I(img)
     return feat
@@ -322,17 +322,17 @@ def get_model(attack_name, classes):
         print("Model doesn't exist")
         exit()
 
-    T = torch.nn.DataParallel(T).cuda()
+    T = torch.nn.DataParallel(T).to(device)
 
 def calc_psnr(img1, img2):
     bs, c, h, w = img1.size()
-    ten = torch.tensor(10).float().cuda()
+    ten = torch.tensor(10).float().to(device)
     mse = (img1 - img2) ** 2
     # [bs, c, h, w]
     mse = torch.sum(mse, dim = 1)
     mse = torch.sum(mse, dim = 1)
     mse = torch.sum(mse, dim = 1).view(-1, 1) / (c * h * w)
-    maxI = torch.ones(bs, 1).cuda()
+    maxI = torch.ones(bs, 1).to(device)
     psnr = 20 * torch.log(maxI / torch.sqrt(mse)) / torch.log(ten)
     return torch.mean(psnr)
 
