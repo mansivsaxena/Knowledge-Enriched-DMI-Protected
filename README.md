@@ -1,4 +1,4 @@
-# DPT Assignment 1 - Experimental Task
+# Experimental Task
 
 # Knowledge-Enriched-Distributional-Model-Inversion-Attacks
 
