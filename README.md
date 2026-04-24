@@ -9,6 +9,11 @@ The paper primarily assumes a white-box set-up where the GAN is trained using th
 Our question - **Do GAN priors trained on one architecture generalize asymmetrically to other architectures, potentially outperforming white-box alignment?**
 More specifically, we look at whether a ”general” face recognition model which was trained on a simpler architecture (VGG16) can effectively attack modern architectures (IR152, FaceNet64), and if this transfer can outperform the white-box approach.
 
+## Experiments
+* 1: Iteration Budget v/s Convergence - **How does the iteration budget affect attack accuracy, variance, and runtime when using the Improved GAN objective across different architectures?**
+* 2: Different Types of Attacks Comparisions - **How do baseline, improved GAN, and distributional recovery attacks compare across different model architectures?**
+* 3: Cross-Model Transfer Attacks (and Defenses) - **Does an inversion-specific GAN trained on one model transfer asymmetrically and possibly outperform white-box set-up?**
+
 ## Requirement
 This code has been tested with Python 3.6, PyTorch 1.0 and cuda 10.0. 
 
