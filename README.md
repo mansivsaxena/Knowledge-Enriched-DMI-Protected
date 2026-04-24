@@ -4,6 +4,11 @@
 
 **Knowledge Enriched Distributional Model Inversion Attacks** \[[paper](https://openaccess.thecvf.com/content/ICCV2021/papers/Chen_Knowledge-Enriched_Distributional_Model_Inversion_Attacks_ICCV_2021_paper.pdf)\]  \[[arxiv](https://arxiv.org/abs/2010.04092)\]
 
+## About this work
+The paper primarily assumes a white-box set-up where the GAN is trained using the same architecture as the target model. There is no investigation into whether a GAN prior trained on a ”simple” architecture can effectively attack a ”complex” one, or the other way round. 
+Our question - **Do GAN priors trained on one architecture generalize asymmetrically to other architectures, potentially outperforming white-box alignment?**
+More specifically, we look at whether a ”general” face recognition model which was trained on a simpler architecture (VGG16) can effectively attack modern architectures (IR152, FaceNet64), and if this transfer can outperform the white-box approach.
+
 ## Requirement
 This code has been tested with Python 3.6, PyTorch 1.0 and cuda 10.0. 
 
